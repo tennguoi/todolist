@@ -9,8 +9,8 @@ const {
 const generateToken = (userId) => {
   return jwt.sign(
     { userId },
-    process.env.JWT_SECRET ,
-    { expiresIn: process.env.JWT_EXPIRES_IN  },
+    process.env.JWT_SECRET || "your_super_secret_jwt_key_here",
+    { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
   );
 };
 
@@ -29,6 +29,7 @@ const createDefaultSettings = async (userId) => {
 const signIn = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    console.log('[SignIn] Email:', email);
 
     if (!email || !password) {
       return res.status(400).json({
@@ -41,12 +42,25 @@ const signIn = async (req, res, next) => {
     }
 
     const user = await User.findOne({ where: { email } });
-    if (!user || !(await user.validatePassword(password))) {
-      return res.status(401).json({
+    if (!user) {
+      console.log('[SignIn] User not found:', email);
+      return res.status(400).json({
         success: false,
         error: {
-          code: "INVALID_CREDENTIALS",
-          message: "Invalid email or password",
+          code: "USER_NOT_FOUND",
+          message: "Email không tồn tại",
+        },
+      });
+    }
+
+    const isValid = await user.validatePassword(password);
+    if (!isValid) {
+      console.log('[SignIn] Invalid password for:', email);
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_PASSWORD",
+          message: "Mật khẩu không chính xác",
         },
       });
     }
@@ -56,12 +70,18 @@ const signIn = async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        user: user.toJSON(),
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          avatar: user.avatar,
+        },
         token,
       },
       message: "Sign in successful",
     });
   } catch (error) {
+    console.error('[SignIn] Error:', error);
     next(error);
   }
 };
@@ -69,6 +89,7 @@ const signIn = async (req, res, next) => {
 const signUp = async (req, res, next) => {
   try {
     const { email, password, name } = req.body;
+    console.log('[SignUp] Email:', email);
 
     if (!email || !password || !name) {
       return res.status(400).json({
@@ -92,6 +113,7 @@ const signUp = async (req, res, next) => {
 
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
+      console.log('[SignUp] User exists:', email);
       return res.status(409).json({
         success: false,
         error: {
@@ -103,9 +125,10 @@ const signUp = async (req, res, next) => {
 
     const user = await User.create({
       email,
-      password_hash: password,
       name,
+      password_hash: password,
     });
+    console.log('[SignUp] User created:', user.id);
 
     // Create default settings for the new user
     await createDefaultSettings(user.id);
@@ -115,12 +138,18 @@ const signUp = async (req, res, next) => {
     res.status(201).json({
       success: true,
       data: {
-        user: user.toJSON(),
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          avatar: user.avatar,
+        },
         token,
       },
       message: "Account created successfully",
     });
   } catch (error) {
+    console.error('[SignUp] Error:', error);
     next(error);
   }
 };

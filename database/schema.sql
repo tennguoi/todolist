@@ -4,7 +4,6 @@ CREATE DATABASE IF NOT EXISTS todo_app;
 USE todo_app;
 select * from users;
 
-
 -- Users table
 CREATE TABLE users (
     id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),

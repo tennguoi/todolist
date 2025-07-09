@@ -2,6 +2,25 @@ const { Task, TaskTag, Project } = require("../models");
 const { Op } = require("sequelize");
 const sequelize = require("../config/database");
 
+// Helper function to transform task data for React Native app
+const transformTaskForApp = (task) => ({
+  id: task.id,
+  title: task.title,
+  description: task.description,
+  startDate: task.start_date,
+  dueDate: task.due_date,
+  category: task.category,
+  priority: task.priority,
+  isCompleted: task.is_completed,
+  tags: task.tags ? task.tags.map((tag) => tag.tag) : [],
+  projectId: task.project_id,
+  isRecurring: task.is_recurring,
+  recurringType: task.recurring_type,
+  createdAt: task.created_at,
+  completedAt: task.completed_at,
+  project: task.project,
+});
+
 const getTasks = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -70,23 +89,7 @@ const getTasks = async (req, res, next) => {
     });
 
     // Transform tasks to match React Native app format
-    const transformedTasks = tasks.map((task) => ({
-      id: task.id,
-      title: task.title,
-      description: task.description,
-      startDate: task.start_date,
-      dueDate: task.due_date,
-      category: task.category,
-      priority: task.priority,
-      isCompleted: task.is_completed,
-      tags: task.tags.map((tag) => tag.tag),
-      projectId: task.project_id,
-      isRecurring: task.is_recurring,
-      recurringType: task.recurring_type,
-      createdAt: task.created_at,
-      completedAt: task.completed_at,
-      project: task.project,
-    }));
+    const transformedTasks = tasks.map(transformTaskForApp);
 
     res.json({
       success: true,
@@ -162,23 +165,7 @@ const createTask = async (req, res, next) => {
       ],
     });
 
-    const transformedTask = {
-      id: createdTask.id,
-      title: createdTask.title,
-      description: createdTask.description,
-      startDate: createdTask.start_date,
-      dueDate: createdTask.due_date,
-      category: createdTask.category,
-      priority: createdTask.priority,
-      isCompleted: createdTask.is_completed,
-      tags: createdTask.tags.map((tag) => tag.tag),
-      projectId: createdTask.project_id,
-      isRecurring: createdTask.is_recurring,
-      recurringType: createdTask.recurring_type,
-      createdAt: createdTask.created_at,
-      completedAt: createdTask.completed_at,
-      project: createdTask.project,
-    };
+    const transformedTask = transformTaskForApp(createdTask);
 
     res.status(201).json({
       success: true,
@@ -267,23 +254,7 @@ const updateTask = async (req, res, next) => {
       ],
     });
 
-    const transformedTask = {
-      id: updatedTask.id,
-      title: updatedTask.title,
-      description: updatedTask.description,
-      startDate: updatedTask.start_date,
-      dueDate: updatedTask.due_date,
-      category: updatedTask.category,
-      priority: updatedTask.priority,
-      isCompleted: updatedTask.is_completed,
-      tags: updatedTask.tags.map((tag) => tag.tag),
-      projectId: updatedTask.project_id,
-      isRecurring: updatedTask.is_recurring,
-      recurringType: updatedTask.recurring_type,
-      createdAt: updatedTask.created_at,
-      completedAt: updatedTask.completed_at,
-      project: updatedTask.project,
-    };
+    const transformedTask = transformTaskForApp(updatedTask);
 
     res.json({
       success: true,
@@ -366,23 +337,7 @@ const toggleTaskComplete = async (req, res, next) => {
       ],
     });
 
-    const transformedTask = {
-      id: updatedTask.id,
-      title: updatedTask.title,
-      description: updatedTask.description,
-      startDate: updatedTask.start_date,
-      dueDate: updatedTask.due_date,
-      category: updatedTask.category,
-      priority: updatedTask.priority,
-      isCompleted: updatedTask.is_completed,
-      tags: updatedTask.tags.map((tag) => tag.tag),
-      projectId: updatedTask.project_id,
-      isRecurring: updatedTask.is_recurring,
-      recurringType: updatedTask.recurring_type,
-      createdAt: updatedTask.created_at,
-      completedAt: updatedTask.completed_at,
-      project: updatedTask.project,
-    };
+    const transformedTask = transformTaskForApp(updatedTask);
 
     res.json({
       success: true,
@@ -461,8 +416,52 @@ const getTaskStatistics = async (req, res, next) => {
   }
 };
 
+const getTask = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const taskId = req.params.id;
+
+    const task = await Task.findOne({
+      where: { id: taskId, user_id: userId },
+      include: [
+        {
+          model: TaskTag,
+          as: "tags",
+          attributes: ["tag"],
+        },
+        {
+          model: Project,
+          as: "project",
+          attributes: ["id", "name", "color"],
+        },
+      ],
+    });
+
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "TASK_NOT_FOUND",
+          message: "Task not found",
+        },
+      });
+    }
+
+    const transformedTask = transformTaskForApp(task);
+
+    res.json({
+      success: true,
+      data: transformedTask,
+      message: "Task retrieved successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getTasks,
+  getTask,
   createTask,
   updateTask,
   deleteTask,

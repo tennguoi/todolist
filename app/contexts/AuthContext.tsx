@@ -30,6 +30,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<boolean>;
   signInWithGoogle: () => Promise<boolean>;
   signOut: () => Promise<void>;
+  isOnline: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -47,10 +48,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
     checkAuthState();
+    setupAxiosInterceptors();
   }, []);
+
+  const setupAxiosInterceptors = () => {
+    // Request interceptor
+    axios.interceptors.request.use(
+      (config) => {
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
+
+    // Response interceptor to handle token expiration
+    axios.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        if (error.response?.status === 401) {
+          // Token expired or invalid, sign out user
+          await signOut();
+        }
+        return Promise.reject(error);
+      }
+    );
+  };
 
   const checkAuthState = async () => {
     try {
@@ -58,9 +85,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const token = await AsyncStorage.getItem("token");
 
       if (userData && token) {
-        // Set axios default header
-        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-        setUser(JSON.parse(userData));
+        // Verify token with backend
+        try {
+          axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+          const response = await axios.get(`${API_BASE_URL}/auth/verify`);
+          
+          if (response.data.success) {
+            setUser(JSON.parse(userData));
+            setIsOnline(true);
+          } else {
+            throw new Error("Token verification failed");
+          }
+        } catch (error) {
+          console.error("Token verification failed:", error);
+          // Clear invalid token
+          await AsyncStorage.removeItem("user");
+          await AsyncStorage.removeItem("token");
+          delete axios.defaults.headers.common["Authorization"];
+          setIsOnline(false);
+        }
       }
     } catch (error) {
       console.error("Error checking auth state:", error);
@@ -77,8 +120,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       });
 
       if (response.data.success) {
-        const userData = response.data.user;
-        const token = response.data.token;
+        const userData = response.data.data.user;
+        const token = response.data.data.token;
 
         // Store user data and token
         await AsyncStorage.setItem("user", JSON.stringify(userData));
@@ -88,22 +131,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
         setUser(userData);
+        setIsOnline(true);
         return true;
+      } else {
+        console.error("Sign in failed:", response.data.message);
+        return false;
       }
-      return false;
     } catch (error) {
       console.error("Sign in error:", error);
-      // Fallback to mock authentication for development
-      if (email && password.length >= 6) {
-        const userData = {
-          id: "1",
-          email,
-          name: email.split("@")[0],
-        };
-        await AsyncStorage.setItem("user", JSON.stringify(userData));
-        setUser(userData);
-        return true;
+      setIsOnline(false);
+      
+      // Only use mock authentication in development mode
+      if (__DEV__ && process.env.NODE_ENV === 'development') {
+        console.warn("Using mock authentication - for development only");
+        if (email && password.length >= 6) {
+          const userData = {
+            id: "mock-1",
+            email,
+            name: email.split("@")[0],
+          };
+          await AsyncStorage.setItem("user", JSON.stringify(userData));
+          await AsyncStorage.setItem("token", "mock-token");
+          setUser(userData);
+          return true;
+        }
       }
+      
       return false;
     }
   };
@@ -121,8 +174,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       });
 
       if (response.data.success) {
-        const userData = response.data.user;
-        const token = response.data.token;
+        const userData = response.data.data.user;
+        const token = response.data.data.token;
 
         // Store user data and token
         await AsyncStorage.setItem("user", JSON.stringify(userData));
@@ -132,22 +185,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
         setUser(userData);
+        setIsOnline(true);
         return true;
+      } else {
+        console.error("Sign up failed:", response.data.message);
+        return false;
       }
-      return false;
     } catch (error) {
       console.error("Sign up error:", error);
-      // Fallback to mock registration for development
-      if (email && password.length >= 6 && name) {
-        const userData = {
-          id: Date.now().toString(),
-          email,
-          name,
-        };
-        await AsyncStorage.setItem("user", JSON.stringify(userData));
-        setUser(userData);
-        return true;
+      setIsOnline(false);
+      
+      // Only use mock registration in development mode
+      if (__DEV__ && process.env.NODE_ENV === 'development') {
+        console.warn("Using mock registration - for development only");
+        if (email && password.length >= 6 && name) {
+          const userData = {
+            id: `mock-${Date.now()}`,
+            email,
+            name,
+          };
+          await AsyncStorage.setItem("user", JSON.stringify(userData));
+          await AsyncStorage.setItem("token", "mock-token");
+          setUser(userData);
+          return true;
+        }
       }
+      
       return false;
     }
   };
@@ -168,8 +231,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         });
 
         if (response.data.success) {
-          const userData = response.data.user;
-          const token = response.data.token;
+          const userData = response.data.data.user;
+          const token = response.data.data.token;
 
           // Store user data and token
           await AsyncStorage.setItem("user", JSON.stringify(userData));
@@ -179,7 +242,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
           setUser(userData);
+          setIsOnline(true);
           return true;
+        } else {
+          console.error("Google sign in failed:", response.data.message);
+          return false;
         }
       }
       return false;
@@ -201,10 +268,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const signOut = async () => {
     try {
+      // Call backend to invalidate token
+      try {
+        await axios.post(`${API_BASE_URL}/auth/signout`);
+      } catch (error) {
+        console.error("Error signing out from backend:", error);
+      }
+
       // Sign out from Google if signed in with Google
-      const currentUser = await GoogleSignin.getCurrentUser();
-      if (currentUser) {
-        await GoogleSignin.signOut();
+      try {
+        const currentUser = await GoogleSignin.getCurrentUser();
+        if (currentUser) {
+          await GoogleSignin.signOut();
+        }
+      } catch (error) {
+        console.error("Error signing out from Google:", error);
       }
 
       // Clear stored data
@@ -215,6 +293,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       delete axios.defaults.headers.common["Authorization"];
 
       setUser(null);
+      setIsOnline(false);
     } catch (error) {
       console.error("Sign out error:", error);
     }
@@ -222,7 +301,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <AuthContext.Provider
-      value={{ user, isLoading, signIn, signUp, signInWithGoogle, signOut }}
+      value={{ user, isLoading, signIn, signUp, signInWithGoogle, signOut, isOnline }}
     >
       {children}
     </AuthContext.Provider>

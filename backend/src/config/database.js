@@ -9,18 +9,23 @@ const sequelize = new Sequelize(
     host: "localhost",
     port: 3306,
     dialect: "mysql",
-    logging: console.log, // Hiện log truy vấn (có thể tắt nếu cần)
+    logging: false, // Tắt log để giảm noise
     pool: {
-      max: 10,
+      max: 5, // Giảm số connection tối đa
       min: 0,
       acquire: 30000,
       idle: 10000,
     },
     define: {
       timestamps: true,
-      underscored: false,
+      underscored: true, // Sử dụng snake_case cho column names
       createdAt: "created_at",
       updatedAt: "updated_at",
+    },
+    // Thêm options để tránh lỗi "Too many keys"
+    dialectOptions: {
+      charset: 'utf8mb4',
+      collate: 'utf8mb4_unicode_ci',
     },
   }
 );
