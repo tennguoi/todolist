@@ -59,6 +59,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // Request interceptor
     axios.interceptors.request.use(
       (config) => {
+        // Add timeout to prevent hanging requests
+        config.timeout = 10000; // 10 seconds
         return config;
       },
       (error) => {
@@ -70,10 +72,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     axios.interceptors.response.use(
       (response) => response,
       async (error) => {
+        // Handle rate limiting errors
+        if (error.response?.status === 429) {
+          console.warn("Rate limit exceeded, retrying after delay...");
+          // Wait for 1 second before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return axios.request(error.config);
+        }
+        
         if (error.response?.status === 401) {
           // Token expired or invalid, sign out user
           await signOut();
         }
+        
+        // Handle network errors
+        if (!error.response && error.request) {
+          console.warn("Network error, falling back to offline mode");
+          setIsOnline(false);
+        }
+        
         return Promise.reject(error);
       }
     );

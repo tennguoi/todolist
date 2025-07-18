@@ -32,7 +32,7 @@ const getTasks = async (req, res, next) => {
       start_date,
       due_date,
       search,
-      limit = 50,
+      limit = 100, // Tăng limit mặc định
       offset = 0,
     } = req.query;
 
@@ -69,6 +69,12 @@ const getTasks = async (req, res, next) => {
       ];
     }
 
+    // Add caching headers
+    res.set({
+      'Cache-Control': 'private, max-age=60', // Cache for 1 minute
+      'ETag': `"tasks-${userId}-${Date.now()}"`,
+    });
+
     const tasks = await Task.findAll({
       where,
       include: [
@@ -95,6 +101,11 @@ const getTasks = async (req, res, next) => {
       success: true,
       data: transformedTasks,
       message: "Tasks retrieved successfully",
+      meta: {
+        total: transformedTasks.length,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+      }
     });
   } catch (error) {
     next(error);

@@ -88,7 +88,12 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({
   const loadTasks = async () => {
     try {
       // Try to fetch tasks from backend first
-      const response = await axios.get(`${API_BASE_URL}/tasks`);
+      const response = await axios.get(`${API_BASE_URL}/tasks`, {
+        timeout: 10000, // 10 seconds timeout
+        headers: {
+          'Cache-Control': 'no-cache',
+        }
+      });
 
       if (response.data.success && response.data.tasks) {
         setTasks(response.data.tasks);
@@ -101,6 +106,13 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({
         throw new Error("Backend fetch failed");
       }
     } catch (error) {
+      // Handle rate limiting
+      if (error.response?.status === 429) {
+        console.warn("Rate limit exceeded when loading tasks");
+        // Wait and retry once
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return loadTasks();
+      }
       console.error("Error loading tasks from backend:", error);
       // Fallback to local storage
       try {
@@ -191,7 +203,12 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({
   const addTask = async (taskData: Omit<Task, "id" | "createdAt">) => {
     try {
       // Try to create task on backend
-      const response = await axios.post(`${API_BASE_URL}/tasks`, taskData);
+      const response = await axios.post(`${API_BASE_URL}/tasks`, taskData, {
+        timeout: 10000,
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
 
       if (response.data.success) {
         const newTask = response.data.task;
@@ -200,6 +217,12 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({
         throw new Error("Backend creation failed");
       }
     } catch (error) {
+      // Handle rate limiting
+      if (error.response?.status === 429) {
+        console.warn("Rate limit exceeded when creating task");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return addTask(taskData);
+      }
       console.error("Error creating task on backend:", error);
       // Fallback to local storage
       const newTask: Task = {

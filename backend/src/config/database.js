@@ -11,10 +11,30 @@ const sequelize = new Sequelize(
     dialect: "mysql",
     logging: false, // Tắt log để giảm noise
     pool: {
-      max: 5, // Giảm số connection tối đa
+      max: 10, // Tăng số connection tối đa
       min: 0,
       acquire: 30000,
       idle: 10000,
+    },
+    retry: {
+      match: [
+        /ETIMEDOUT/,
+        /EHOSTUNREACH/,
+        /ECONNRESET/,
+        /ECONNREFUSED/,
+        /ETIMEDOUT/,
+        /ESOCKETTIMEDOUT/,
+        /EHOSTUNREACH/,
+        /EPIPE/,
+        /EAI_AGAIN/,
+        /SequelizeConnectionError/,
+        /SequelizeConnectionRefusedError/,
+        /SequelizeHostNotFoundError/,
+        /SequelizeHostNotReachableError/,
+        /SequelizeInvalidConnectionError/,
+        /SequelizeConnectionTimedOutError/
+      ],
+      max: 3
     },
     define: {
       timestamps: true,
@@ -26,6 +46,9 @@ const sequelize = new Sequelize(
     dialectOptions: {
       charset: 'utf8mb4',
       collate: 'utf8mb4_unicode_ci',
+      connectTimeout: 60000,
+      acquireTimeout: 60000,
+      timeout: 60000,
     },
   }
 );

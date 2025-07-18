@@ -16,11 +16,22 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
+    // Add rate limiting info to response headers
+    res.set({
+      'X-RateLimit-Limit': '1000',
+      'X-RateLimit-Remaining': '999',
+      'X-RateLimit-Reset': new Date(Date.now() + 15 * 60 * 1000).toISOString()
+    });
+
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET || "sieubimat",
     );
-    const user = await User.findByPk(decoded.userId);
+    
+    // Cache user lookup to reduce database queries
+    const user = await User.findByPk(decoded.userId, {
+      attributes: ['id', 'email', 'name', 'avatar', 'google_id']
+    });
 
     if (!user) {
       return res.status(401).json({

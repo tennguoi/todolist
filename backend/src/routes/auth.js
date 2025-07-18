@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { authLimiter } = require("../middleware/rateLimiter");
 
 // Test route
 router.get("/test", (req, res) => {
@@ -20,9 +21,9 @@ try {
   const { authenticateToken } = require("../middleware/auth");
 
   // Public routes
-  router.post("/signin", signIn);
-  router.post("/signup", signUp);
-  router.post("/google", signInWithGoogle);
+  router.post("/signin", authLimiter, signIn);
+  router.post("/signup", authLimiter, signUp);
+  router.post("/google", authLimiter, signInWithGoogle);
 
   // Protected routes
   router.get("/verify", authenticateToken, (req, res) => {

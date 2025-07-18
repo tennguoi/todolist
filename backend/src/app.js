@@ -36,7 +36,7 @@ app.use(
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 1000, // Tăng limit lên 1000 requests per 15 minutes
   message: {
     success: false,
     error: {
@@ -44,8 +44,16 @@ const limiter = rateLimit({
       message: "Too many requests from this IP, please try again later.",
     },
   },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skip: (req) => {
+    // Skip rate limiting for health check and test endpoints
+    return req.path === '/health' || req.path.includes('/test');
+  },
 });
-app.use(limiter);
+
+// Apply rate limiting only to API routes, not static files or health checks
+app.use('/api', limiter);
 
 // Logging
 if (process.env.NODE_ENV !== "test") {

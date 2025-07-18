@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { taskLimiter } = require("../middleware/rateLimiter");
 
 // Test route (no auth required)
 router.get("/test", (req, res) => {
@@ -24,6 +25,9 @@ try {
 
   // All task routes require authentication
   router.use(authenticateToken);
+  
+  // Apply task-specific rate limiting
+  router.use(taskLimiter);
 
   router.get("/", getTasks);
   router.post("/", createTask);
