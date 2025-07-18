@@ -12,9 +12,9 @@
     "lint": "expo lint",
     "dev": "node scripts/dev.js",
     "dev:simple": "concurrently \"npm run backend\" \"npm run frontend\"",
-    "backend": "nodemon backend/server.js",
+    "backend": "npx nodemon backend/server.js",
     "frontend": "expo start",
-    "dev:backend": "nodemon backend/server.js",
+    "dev:backend": "npx nodemon backend/server.js",
     "dev:frontend": "expo start",
     "setup:db": "node scripts/setup-db.js"
   },
