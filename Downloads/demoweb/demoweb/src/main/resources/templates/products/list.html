@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Quản Lý Sản Phẩm</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .product-image {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 5px;
+        }
+        .action-buttons {
+            white-space: nowrap;
+        }
+        .search-form {
+            max-width: 400px;
+        }
+        .table-warning {
+            background-color: #fff3cd !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-boxes me-2"></i>Quản Lý Sản Phẩm</h1>
+            <a th:href="@{/products/new}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Thêm Sản Phẩm
+            </a>
+        </div>
+
+        <!-- Flash Messages -->
+        <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <span th:text="${successMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <span th:text="${errorMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <!-- Search Form -->
+        <form th:action="@{/products}" method="get" class="mb-4">
+            <div class="input-group search-form">
+                <input type="text" name="keyword" class="form-control" placeholder="Tìm kiếm sản phẩm..." 
+                       th:value="${keyword}">
+                <button type="submit" class="btn btn-outline-secondary">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </form>
+
+        <!-- Products Table -->
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Hình ảnh</th>
+                                <th>Tên sản phẩm</th>
+                                <th>Giá</th>
+                                <th>Số lượng</th>
+                                <th>Danh mục</th>
+                                <th>Ngày tạo</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="product : ${products}" 
+                                th:classappend="${product.quantity == 0} ? 'table-warning'">
+                                <td>
+                                    <img th:if="${product.imageUrl != null and !product.imageUrl.isEmpty()}" 
+                                         th:src="@{'/uploads/' + ${product.imageUrl}}" 
+                                         class="product-image" 
+                                         alt="Product Image"
+                                         onerror="this.style.display='none'">
+                                    <div th:if="${product.imageUrl == null or product.imageUrl.isEmpty()}" 
+                                         class="text-muted">
+                                        <i class="fas fa-image fa-2x"></i>
+                                    </div>
+                                </td>
+                                <td th:text="${product.name} ?: 'N/A'"></td>
+                                <td>
+                                    <span class="fw-bold text-success" 
+                                          th:text="${product.price} ? ${#numbers.formatCurrency(product.price)} : '0 ₫'"></span>
+                                </td>
+                                <td>
+                                    <!-- SỬA LỖI: Sử dụng cách đơn giản với th:if -->
+                                    <span th:if="${product.quantity == 0}" 
+                                          class="badge bg-danger" 
+                                          th:text="${product.quantity}"></span>
+                                    <span th:if="${product.quantity > 0 and product.quantity < 10}" 
+                                          class="badge bg-warning" 
+                                          th:text="${product.quantity}"></span>
+                                    <span th:if="${product.quantity >= 10}" 
+                                          class="badge bg-success" 
+                                          th:text="${product.quantity}"></span>
+                                    <span th:if="${product.quantity == null}" 
+                                          class="badge bg-secondary">0</span>
+                                </td>
+                                <td>
+                                    <span th:if="${product.category != null and !product.category.isEmpty()}" 
+                                          class="badge bg-info" 
+                                          th:text="${product.category}"></span>
+                                    <span th:if="${product.category == null or product.category.isEmpty()}" 
+                                          class="badge bg-secondary">Chưa phân loại</span>
+                                </td>
+                                <td th:text="${product.createdAt} ? ${#temporals.format(product.createdAt, 'dd/MM/yyyy HH:mm')} : 'N/A'"></td>
+                                <td class="action-buttons">
+                                    <a th:href="@{/products/view/{id}(id=${product.id})}" 
+                                       class="btn btn-sm btn-info me-1" title="Xem chi tiết">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a th:href="@{/products/edit/{id}(id=${product.id})}" 
+                                       class="btn btn-sm btn-warning me-1" title="Sửa">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a th:href="@{/products/delete/{id}(id=${product.id})}" 
+                                       class="btn btn-sm btn-danger" 
+                                       onclick="return confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')"
+                                       title="Xóa">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(products)}">
+                                <td colspan="7" class="text-center text-muted py-4">
+                                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                                    <p>Không có sản phẩm nào.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 text-center text-muted">
+            <p>Hệ thống Quản Lý Sản Phẩm &copy; 2024</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
